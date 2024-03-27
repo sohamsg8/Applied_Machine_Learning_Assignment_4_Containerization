@@ -86,5 +86,48 @@ class TestFlaskIntegration(unittest.TestCase):
     def tearDownClass(cls):
         cls.flask_process.terminate()
 
+
+
+class TestDocker(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Build the Docker image
+        subprocess.run(["docker", "build", "-t", "assignment_4", "."], check=True)
+        # Run the Docker container
+        cls.container_id = cls._run_docker_container()
+        # Load input texts from the CSV file
+        cls.test_df = pd.read_csv(r"D:\Applied ML\ASSINGMENT_4\Data\test.csv")
+        time.sleep(5)  # Wait for the server to start
+
+    @classmethod
+    def _run_docker_container(cls):
+        # Run the Docker container and return the container ID
+        container_id = subprocess.check_output(["docker", "run", "-d", "-p", "5000:5000", "assignment_4"]).decode("utf-8").strip()
+        return container_id
+
+    def test_docker(self):
+        # Choose a random text from test data
+        random_index = random.randint(0, len(self.test_df) - 1)
+        text = self.test_df.iat[random_index, 0]
+        # Test the /score endpoint
+        response = self._send_request(text)
+        self.assertEqual(response.status_code, 200)
+        # You may want to add more assertions here based on your expected response
+
+    def _send_request(self, text):
+        # Send a request to the Docker container's /score endpoint
+        test_data = {'text': text}
+        response = requests.post('http://127.0.0.1:5000/score', json=test_data)
+        return response
+
+    @classmethod
+    def tearDownClass(cls):
+        # Stop and remove the Docker container
+        subprocess.run(["docker", "stop", cls.container_id], check=True)
+        subprocess.run(["docker", "rm", cls.container_id], check=True)
+
+
+
 if __name__ == '__main__':
     unittest.main()
+
